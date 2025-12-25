@@ -9,8 +9,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - ASR_URL=${ASR_URL:-}
-      - WHISPER_MODEL_ID=${WHISPER_MODEL_ID:-openai/whisper-large-v3}
-      - LANGUAGE=${LANGUAGE:-japanese}
+      - WHISPER_MODEL_ID=${WHISPER_MODEL_ID:-large-v3}
+      - LANGUAGE=${LANGUAGE:-ja}
       - STREAMING_AUDIO_DEBUG=${STREAMING_AUDIO_DEBUG:-}
     ports:
       - "19100:9100"

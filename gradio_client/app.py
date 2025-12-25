@@ -294,14 +294,14 @@ def stream_handler(state: dict[str, Any] | None, audio: Any, chat_history: list[
 
     audio_tuple = _normalize_audio(audio)
     if audio_tuple is None:
-        return state, state.get("last_text", ""), history, _status_text(state), state.get("session_id", "")
+        return state, history, _status_text(state), state.get("session_id", "")
 
     try:
         payload = _post_stream(state.get("session_id"), audio_tuple)
     except Exception as exc:
         if GRADIO_DEBUG:
             print(f"[gradio-client] stream error: {exc}", flush=True)
-        return state, state.get("last_text", ""), chat_history, "ステータス: 通信エラー", state.get("session_id", "")
+        return state, history, "ステータス: 通信エラー", state.get("session_id", "")
 
     session_id = payload.get("session_id") or state.get("session_id")
     text = payload.get("text", "") or ""
@@ -329,13 +329,11 @@ def stream_handler(state: dict[str, Any] | None, audio: Any, chat_history: list[
         state["speaking"] = False
         state["last_text"] = ""
         event = "end"
-        text_out = ""
     else:
         state["last_text"] = text
-        text_out = text
 
     state["session_id"] = session_id
-    return state, text_out, history, _status_text(state, event), session_id or ""
+    return state, history, _status_text(state, event), session_id or ""
 
 
 def reset_session(state: dict[str, Any] | None):
@@ -354,7 +352,7 @@ def reset_session(state: dict[str, Any] | None):
         except Exception:
             pass
     new_state = _init_state(chatbot_use_messages)
-    return new_state, "", [], "ステータス: 待機中", ""
+    return new_state, [], "ステータス: 待機中", ""
 
 
 def build_ui() -> gr.Blocks:
@@ -366,16 +364,10 @@ def build_ui() -> gr.Blocks:
         session_id_box = gr.Textbox(label="session_id", interactive=False)
 
         mic = gr.Audio(
-            label="マイク入力 (streaming)",
+            label="マイク入力",
             sources=["microphone"],
             type="numpy",
             streaming=True,
-        )
-        transcript = gr.Textbox(
-            label="ストリーミング文字起こし",
-            placeholder="発話中はここに表示されます",
-            lines=2,
-            interactive=False,
         )
 
         chatbot, chatbot_use_messages = _create_chatbot()
@@ -387,7 +379,7 @@ def build_ui() -> gr.Blocks:
         mic.stream(
             fn=stream_handler,
             inputs=[state, mic, chatbot],
-            outputs=[state, transcript, chatbot, status, session_id_box],
+            outputs=[state, chatbot, status, session_id_box],
             stream_every=STREAM_EVERY,
         )
 
@@ -395,7 +387,7 @@ def build_ui() -> gr.Blocks:
         reset_btn.click(
             fn=reset_session,
             inputs=[state],
-            outputs=[state, transcript, chatbot, status, session_id_box],
+            outputs=[state, chatbot, status, session_id_box],
         )
 
     return demo

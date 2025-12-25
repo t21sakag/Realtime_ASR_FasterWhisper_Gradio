@@ -2,10 +2,17 @@ from dataclasses import dataclass
 import os
 
 
+def _normalize_language(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"japanese", "ja-jp", "jp"}:
+        return "ja"
+    return normalized
+
+
 @dataclass(frozen=True)
 class StreamingConfig:
-    whisper_model_id: str = os.getenv("WHISPER_MODEL_ID", "openai/whisper-large-v3")
-    language: str = os.getenv("LANGUAGE", "japanese")
+    whisper_model_id: str = os.getenv("WHISPER_MODEL_ID", "large-v3")
+    language: str = _normalize_language(os.getenv("LANGUAGE", "ja"))
     vad_threshold: float = float(os.getenv("VAD_THRESHOLD", 0.5))
     min_speech_duration_ms: int = int(os.getenv("MIN_SPEECH_DURATION_MS", 250))
     min_silence_duration_ms: int = int(os.getenv("MIN_SILENCE_DURATION_MS", 400))

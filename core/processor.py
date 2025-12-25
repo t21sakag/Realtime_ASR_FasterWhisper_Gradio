@@ -9,8 +9,7 @@ import numpy as np
 import requests
 import soundfile as sf
 import torch
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-from transformers.utils import is_flash_attn_2_available
+from faster_whisper import WhisperModel
 
 from core.config import StreamingConfig
 from core.session_store import StreamingState
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 class StreamingAudioProcessor:
     def __init__(self, config: StreamingConfig) -> None:
         self.config = config
-        self.streaming_pipeline = None
+        self.whisper_model = None
         self.vad_model = None
         self.get_speech_timestamps = None
         self.np_dtype = np.float32
@@ -38,30 +37,16 @@ class StreamingAudioProcessor:
 
     def _load_models(self) -> None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
         self.np_dtype = np.float16 if torch.cuda.is_available() else np.float32
-        attention = "flash_attention_2" if is_flash_attn_2_available() else "sdpa"
+        compute_type = "float16" if torch.cuda.is_available() else "int8"
 
         if self.config.asr_url:
             logger.info("Remote ASR enabled: %s", self.config.asr_url)
         else:
-            model = AutoModelForSpeechSeq2Seq.from_pretrained(
-                self.config.whisper_model_id,
-                torch_dtype=torch_dtype,
-                low_cpu_mem_usage=True,
-                use_safetensors=True,
-                attn_implementation=attention,
-            )
-            model.to(device)
-            processor = AutoProcessor.from_pretrained(self.config.whisper_model_id)
-            self.streaming_pipeline = pipeline(
-                "automatic-speech-recognition",
-                model=model,
-                tokenizer=processor.tokenizer,
-                feature_extractor=processor.feature_extractor,
-                torch_dtype=torch_dtype,
-                device=device,
-            )
+            model_id = self.config.whisper_model_id
+            if model_id.startswith("openai/whisper-"):
+                model_id = model_id.replace("openai/whisper-", "", 1)
+            self.whisper_model = WhisperModel(model_id, device=device, compute_type=compute_type)
 
         vad_model, vad_utils = torch.hub.load(
             repo_or_dir="snakers4/silero-vad",
@@ -87,19 +72,16 @@ class StreamingAudioProcessor:
                 resp.raise_for_status()
                 return resp.json().get("text", "").strip()
 
-            if self.streaming_pipeline is None:
+            if self.whisper_model is None:
                 return ""
 
-            outputs = self.streaming_pipeline(
-                {"sampling_rate": 16000, "raw": audio_16k},
-                chunk_length_s=5,
-                batch_size=1,
-                generate_kwargs={
-                    "task": "transcribe",
-                    "language": self.config.language,
-                },
+            segments, _ = self.whisper_model.transcribe(
+                audio_16k,
+                language=self.config.language,
+                task="transcribe",
             )
-            return outputs.get("text", "").strip()
+            text = "".join(segment.text for segment in segments).strip()
+            return text
         except Exception as exc:
             logger.error("Transcription failed: %s", exc)
             return ""
