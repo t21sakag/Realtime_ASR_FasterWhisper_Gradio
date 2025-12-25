@@ -30,6 +30,16 @@ Docker で音声サービスとサンプル UI を別コンテナで立ち上げ
 docker compose -f gradio_client/docker-compose.yml up --build
 ```
 
+## システム図
+<img width="1541" height="842" alt="image" src="https://github.com/user-attachments/assets/a68effff-2e34-4981-9964-acdc6690695d" />
+
+## データフロー図
+<img width="1898" height="745" alt="image" src="https://github.com/user-attachments/assets/dca9fbc8-e9a8-4a90-bcae-66f327d9832f" />
+
+## セッション管理図
+<img width="1687" height="920" alt="image" src="https://github.com/user-attachments/assets/78b4c299-f27a-4ede-bc0d-e5ce590ec143" />
+
+
 ## 主要エンドポイント
 
 - `GET /health`
