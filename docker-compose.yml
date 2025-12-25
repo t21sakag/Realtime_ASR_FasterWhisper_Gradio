@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  audio-stream:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: realtime-asr-fasterwhisper-audio-stream
+    environment:
+      - PYTHONPATH=/app
+      - ASR_URL=${ASR_URL:-}
+      - WHISPER_MODEL_ID=${WHISPER_MODEL_ID:-openai/whisper-large-v3}
+      - LANGUAGE=${LANGUAGE:-japanese}
+      - STREAMING_AUDIO_DEBUG=${STREAMING_AUDIO_DEBUG:-}
+    ports:
+      - "19100:9100"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9100"]
+    restart: unless-stopped

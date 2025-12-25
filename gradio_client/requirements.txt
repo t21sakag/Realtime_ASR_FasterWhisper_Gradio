@@ -1,0 +1,4 @@
+gradio==5.49.0
+numpy==1.26.4
+requests==2.31.0
+soundfile==0.12.1
